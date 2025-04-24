@@ -13,6 +13,10 @@ zephyr_library_sources(
   thread.c
 )
 
+if (NOT CONFIG_GEN_SW_ISR_TABLE)
+zephyr_library_sources(isr2.S)
+endif()
+
 if ((CONFIG_MP_MAX_NUM_CPUS GREATER 1) OR (CONFIG_SMP))
   zephyr_library_sources(smp.c)
 endif ()

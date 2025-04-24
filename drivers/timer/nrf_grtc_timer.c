@@ -465,8 +465,13 @@ static int sys_clock_driver_init(void)
 {
 	nrfx_err_t err_code;
 
+#if 0 // defined(CONFIG_GEN_SW_ISR_TABLE)
 	IRQ_CONNECT(DT_IRQN(GRTC_NODE), DT_IRQ(GRTC_NODE, priority), nrfx_isr,
 		    nrfx_grtc_irq_handler, 0);
+#else
+	IRQ_DIRECT_CONNECT(DT_IRQN(GRTC_NODE), DT_IRQ(GRTC_NODE, priority), nrfx_grtc_irq_handler, 0);
+	irq_enable(DT_IRQN(GRTC_NODE));
+#endif
 
 #if defined(CONFIG_NRF_GRTC_TIMER_CLOCK_MANAGEMENT) && NRF_GRTC_HAS_CLKSEL
 #if defined(CONFIG_CLOCK_CONTROL_NRF_K32SRC_RC)

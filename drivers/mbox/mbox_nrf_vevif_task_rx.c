@@ -111,7 +111,7 @@ static DEVICE_API(mbox, vevif_task_rx_driver_api) = {
 	.set_enabled = vevif_task_rx_set_enabled,
 };
 
-#if defined(CONFIG_GEN_SW_ISR_TABLE)
+#if 0 // defined(CONFIG_GEN_SW_ISR_TABLE)
 #define VEVIF_IRQ_CONNECT(idx, _)                                                                  \
 	IRQ_CONNECT(DT_INST_IRQ_BY_IDX(0, idx, irq), DT_INST_IRQ_BY_IDX(0, idx, priority),         \
 		    vevif_task_rx_isr, &vevif_irqs[idx], 0)
