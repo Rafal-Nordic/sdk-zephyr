@@ -2435,22 +2435,24 @@ static int uarte_instance_init(const struct device *dev,
 	return pm_device_driver_init(dev, uarte_nrfx_pm_action);
 }
 
-#define USE_DIRECT_ISR 1
-
 #define UARTE_GET_ISR(idx) \
 	COND_CODE_1(CONFIG_UART_##idx##_ASYNC, (uarte_nrfx_isr_async), (uarte_nrfx_isr_int))
 
-#define DIRECT_ISR(idx) \
-	IF_ENABLED(USE_DIRECT_ISR, ( \
-		static void uarte_##idx##_direct_isr(void) \
-		{\
-			UARTE_GET_ISR(idx)(DEVICE_DT_GET(UARTE(idx))); \
-		} \
+/* Declare interrupt handler for direct ISR. */
+#define UARTE_DIRECT_ISR_DECLARE(idx)					       \
+	IF_ENABLED(CONFIG_UART_NRFX_UARTE_DIRECT_ISR, (			       \
+		ISR_DIRECT_DECLARE(uarte_##idx##_direct_isr)		       \
+		{							       \
+			ISR_DIRECT_PM();				       \
+			UARTE_GET_ISR(idx)(DEVICE_DT_GET(UARTE(idx)));	       \
+			return 1;					       \
+		}							       \
 		))
 
-#define UARTE_IRQ_CONNECT(idx, irqn, prio) \
-	COND_CODE_1(USE_DIRECT_ISR,\
-		(IRQ_DIRECT_CONNECT(irqn, prio, uarte_##idx##_direct_isr, 0)),\
+/* Depending on configuration standard or direct IRQ is connected. */
+#define UARTE_IRQ_CONNECT(idx, irqn, prio)							\
+	COND_CODE_1(CONFIG_UART_NRFX_UARTE_DIRECT_ISR,						\
+		(IRQ_DIRECT_CONNECT(irqn, prio, uarte_##idx##_direct_isr, 0)),			\
 		(IRQ_CONNECT(irqn, prio, UARTE_GET_ISR(idx), DEVICE_DT_GET(UARTE(idx)), 0)))
 
 #define UARTE_IRQ_CONFIGURE(idx)							   \
@@ -2590,7 +2592,7 @@ static int uarte_instance_init(const struct device *dev,
 				.precision = NRF_CLOCK_CONTROL_PRECISION_DEFAULT,\
 				},))					       \
 	};								       \
-	DIRECT_ISR(idx)							       \
+	UARTE_DIRECT_ISR_DECLARE(idx)					       \
 	static int uarte_##idx##_init(const struct device *dev)		       \
 	{								       \
 		UARTE_IRQ_CONFIGURE(idx);				       \
