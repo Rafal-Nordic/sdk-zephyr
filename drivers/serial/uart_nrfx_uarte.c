@@ -2435,11 +2435,28 @@ static int uarte_instance_init(const struct device *dev,
 	return pm_device_driver_init(dev, uarte_nrfx_pm_action);
 }
 
-#define UARTE_IRQ_CONFIGURE(idx, isr_handler)				       \
-	do {								       \
-		IRQ_CONNECT(DT_IRQN(UARTE(idx)), DT_IRQ(UARTE(idx), priority), \
-			    isr_handler, DEVICE_DT_GET(UARTE(idx)), 0);	       \
-		irq_enable(DT_IRQN(UARTE(idx)));			       \
+#define USE_DIRECT_ISR 1
+
+#define UARTE_GET_ISR(idx) \
+	COND_CODE_1(CONFIG_UART_##idx##_ASYNC, (uarte_nrfx_isr_async), (uarte_nrfx_isr_int))
+
+#define DIRECT_ISR(idx) \
+	IF_ENABLED(USE_DIRECT_ISR, ( \
+		static void uarte_##idx##_direct_isr(void) \
+		{\
+			UARTE_GET_ISR(idx)(DEVICE_DT_GET(UARTE(idx))); \
+		} \
+		))
+
+#define UARTE_IRQ_CONNECT(idx, irqn, prio) \
+	COND_CODE_1(USE_DIRECT_ISR,\
+		(IRQ_DIRECT_CONNECT(irqn, prio, uarte_##idx##_direct_isr, 0)),\
+		(IRQ_CONNECT(irqn, prio, UARTE_GET_ISR(idx), DEVICE_DT_GET(UARTE(idx)), 0)))
+
+#define UARTE_IRQ_CONFIGURE(idx)							   \
+	do {										   \
+		UARTE_IRQ_CONNECT(idx, DT_IRQN(UARTE(idx)), DT_IRQ(UARTE(idx), priority)); \
+		irq_enable(DT_IRQN(UARTE(idx)));					   \
 	} while (false)
 
 /* Low power mode is used when disable_rx is not defined or in async mode if
@@ -2573,11 +2590,10 @@ static int uarte_instance_init(const struct device *dev,
 				.precision = NRF_CLOCK_CONTROL_PRECISION_DEFAULT,\
 				},))					       \
 	};								       \
+	DIRECT_ISR(idx)							       \
 	static int uarte_##idx##_init(const struct device *dev)		       \
 	{								       \
-		COND_CODE_1(CONFIG_UART_##idx##_ASYNC,			       \
-			   (UARTE_IRQ_CONFIGURE(idx, uarte_nrfx_isr_async);),  \
-			   (UARTE_IRQ_CONFIGURE(idx, uarte_nrfx_isr_int);))    \
+		UARTE_IRQ_CONFIGURE(idx);				       \
 		return uarte_instance_init(				       \
 			dev,						       \
 			IS_ENABLED(CONFIG_UART_##idx##_INTERRUPT_DRIVEN));     \
